@@ -669,21 +669,173 @@ join dept_emp de on e.emp_no = de.emp_no
 join departments d ON de.dept_no = d.dept_no
 
 
+use classicmodels
+
+start transaction
+
+select *
+from customers c
 
 
+update customers
+SET addressline1 = "New address line1",
+    city = "Sarajevo",
+    state = "FBiH",
+    postalcode = "7100",
+    country = "Bosnia and Herzegovina"
+where customernumber = 103;
 
+UPDATE orders
+SET shipAddress = 'New Address Line 1',
+    shipCity = 'New City',
+    shipState = 'New State',
+    shipPostalCode = 'New Postal Code',
+    shipCountry = 'New Country'
+WHERE customerNumber = 103; -- Replace 103 with the actual customer number
 
+ROLLBACK
 
+start transaction
 
+update customers c
+SET c.city = "Tuzla";
 
+ROLLBACK
 
+select *
+FROM customers c
 
+SELECT productLine,
+	   	    SUM(buyPrice) AS total
+FROM products p
+GROUP BY productLine;
 
+SELECT productCode,
+	   	    productName,
+    productLine,
+	   	    buyPrice,
+	   	    SUM(buyPrice) OVER(
+	   		PARTITION BY productLine
+	   	    )
+FROM products p;
 
+SELECT p.customerNumber,
+	   	    p.paymentDate AS payment_date,
+     	    p.amount,
+	   	    ROW_NUMBER() OVER (
+	   		ORDER BY p.amount
+	   	    ) AS row_numberr
+FROM payments p;
 
+SELECT p.customerNumber,
+	   	    p.paymentDate AS payment_date,
+	          p.amount,
+	   	    CUME_DIST() OVER (
+	   		ORDER BY p.amount
+	   	    ) AS cume_dist_value
+FROM payments p;
 
+SELECT p.customerNumber,
+	   p.paymentDate AS payment_date,
+	   p.amount,
+	   RANK() OVER (
+	   	ORDER BY p.customerNumber
+	   ) AS rankk
+FROM payments p
+ORDER BY p.customerNumber;
 
+select p.customernumber, p.amount, first_value(p.amount) OVER (PARTITION BY p.customernumber ORDER BY p.amount DESC range between UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING) as rankk
+from payments p;
 
+SELECT p.customerNumber,
+	   p.paymentDate AS payment_date,
+	   p.amount,
+	   NTILE(5) OVER (
+	   	ORDER BY p.customerNumber
+	   ) AS rankk
+FROM payments p
+ORDER BY p.customerNumber;
+
+SELECT p.customerNumber,
+	   p.paymentDate AS payment_date,
+	   p.amount,
+	   LAG(p.amount, 1, 0) OVER (
+	   	ORDER BY p.customerNumber
+	   ) AS lag_val
+FROM payments p
+ORDER BY p.customerNumber;
+
+SELECT p.customerNumber,
+	   p.paymentDate AS payment_date,
+	   p.amount,
+	   LEAD(p.amount, 1) OVER (
+	   	PARTITION BY p.customerNumber ORDER BY p.customerNumber
+	   ) AS lag_val,
+	   p.amount - LEAD(p.amount, 1) OVER (
+	   	PARTITION BY p.customerNumber ORDER BY p.customerNumber
+	   ) AS sub_value
+FROM payments p
+ORDER BY p.customerNumber;
+
+SELECT p.customerNumber,
+	   p.paymentDate AS payment_date,
+	   p.amount,
+	   NTH_VALUE(p.paymentDate, 3) OVER (
+	   	PARTITION BY p.customerNumber
+	   	ORDER BY p.customerNumber
+	   	RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+	   ) AS nth_values
+FROM payments p
+ORDER BY p.customerNumber;
+
+use classicmodels
+-- Start the transaction
+START TRANSACTION;
+
+-- Update the customerNumber for the affected order in the orders table
+UPDATE orders
+SET customerNumber = 103 -- Replace with the correct customer number
+WHERE orderNumber = 10101; -- Replace with the affected order number
+
+-- Check if the order belongs to the new customer (to ensure consistency, optional check)
+-- This query can be used for validation purposes.
+SELECT * FROM orders
+WHERE customerNumber = 103;
+
+-- Commit the transaction if everything is correct
+COMMIT;
+ROLLBACK
+-- If any part fails, you can roll back the transaction
+-- ROLLBACK;  -- Uncomment if handling errors explicitly
+
+use sakila
+
+select r.rental_id,
+       rental_date,
+       datediff(current_date, rental_date) as days_since_rental,
+       if (datediff(return_date, rental_date) > 3, 'Overdue', 'OnTime') as return_status,
+       COALESCE(rpad(CONCAT_WS(' ', upper(first_name), upper(last_name)), 30, '*'), 'UNKNOWN') as customer_name
+from rental r
+join customer c on c.customer_id = r.customer_id
+order by days_since_rental DESC
+
+select f.film_id AS film_number,
+       concat(reverse(mid(f.title, 1, 5)), lower(mid(f.title, 5))) as fancy_film,
+       length(description) as description_lenght,
+       round(avg(p.amount), 2) as avg_payment,
+       count(DISTINCT c.customer_id) as total_customers_rented,
+       if(bit_count(f.film_id) > 4, 'Bitty', 'Not Bitty') as bit_status,
+       if(count(c.customer_id) > 5, if(avg(f.replacement_cost) OVER (ORDER BY
+           f.replacement_cost ROWS BETWEEN UNBOUNDED PRECEDING and unbounded following) <=
+           f.replacement_cost, 'ABOVE AVG COST' ,'BELOW AVG COST'), 'BELOW AVG COST') as cost_category,
+       f.replacement_cost
+from film f
+join inventory i on i.film_id = f.film_id
+join rental r on i.inventory_id = r.inventory_id
+join customer c on r.customer_id = c.customer_id
+join payment p ON r.rental_id = p.rental_id
+GROUP BY f.film_id
+order by avg_payment DESC, fancy_film asc
 
 
 
